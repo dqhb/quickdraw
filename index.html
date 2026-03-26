@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Orange Swarm</title>
+    <style>
+        body { margin: 0; background: #2c3e50; font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { background: #34495e; border: 4px solid #ff8c00; border-radius: 10px; display: none; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        
+        /* The Lobby UI */
+        #lobby { text-align: center; background: rgba(0,0,0,0.7); padding: 40px; border-radius: 15px; border: 2px solid #ff8c00; }
+        h1 { color: #ff8c00; font-size: 3rem; margin-top: 0; }
+        input { padding: 10px; font-size: 1.2rem; border-radius: 5px; border: none; text-align: center; margin-bottom: 20px; outline: none; }
+        button { background: #ff8c00; color: white; border: none; padding: 10px 20px; font-size: 1.2rem; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        button:hover { background: #e67e22; }
+        
+        #hud { position: absolute; top: 20px; left: 20px; display: none; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div id="lobby">
+        <h1>ORANGE SWARM</h1>
+        <p>Awaiting Admin Authorization...</p>
+        <input type="text" id="adminCode" placeholder="Enter Code">
+        <br>
+        <button onclick="sendCode()">INITIATE WAVE 1</button>
+    </div>
+
+    <div id="hud">
+        <h2>WAVE: <span id="waveDisplay" style="color:#ff8c00;">0</span></h2>
+        <h2>HP: <span id="hpDisplay" style="color:#2ecc71;">100</span></h2>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const lobby = document.getElementById('lobby');
+        const hud = document.getElementById('hud');
+        
+        let myId = null;
+        let myX = 400, myY = 300, myHp = 100;
+        let gameState = 'LOBBY';
+        let wave = 0;
+        
+        let serverPlayers = {};
+        let apples = [];
+        let enemyBullets = [];
+        let myBullets = [];
+
+        // --- LOBBY LOGIC ---
+        function sendCode() {
+            const code = document.getElementById('adminCode').value;
+            socket.emit('tryStart', code);
+        }
+
+        socket.on('init', data => { myId = data.id; });
+        
+        socket.on('gameStarted', w => {
+            lobby.style.display = 'none';
+            canvas.style.display = 'block';
+            hud.style.display = 'block';
+            wave = w;
+            document.getElementById('waveDisplay').innerText = wave;
+            gameState = 'PLAYING';
+            gameLoop();
+        });
+
+        socket.on('updateWave', w => {
+            wave = w;
+            document.getElementById('waveDisplay').innerText = wave;
+        });
+
+        // --- GAME SYNC ---
+        socket.on('syncState', state => {
+            serverPlayers = state.players;
+            apples = state.apples;
+            enemyBullets = state.enemyBullets;
+            
+            if (serverPlayers[myId]) {
+                myHp = Math.floor(serverPlayers[myId].hp);
+                document.getElementById('hpDisplay').innerText = myHp;
+            }
+        });
+
+        // --- INPUT & MOVEMENT ---
+        const keys = {};
+        window.onkeydown = e => keys[e.code] = true;
+        window.onkeyup = e => keys[e.code] = false;
+
+        window.onmousedown = e => {
+            if (gameState !== 'PLAYING') return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const angle = Math.atan2(mouseY - myY, mouseX - myX);
+            const b = { 
+                x: myX + Math.cos(angle)*25, 
+                y: myY + Math.sin(angle)*25, 
+                vx: Math.cos(angle)*10, 
+                vy: Math.sin(angle)*10 
+            };
+            myBullets.push(b);
+            socket.emit('shoot', b);
+        };
+
+        // --- DRAWING LOGIC ---
+        function drawSmilingOrange(x, y) {
+            // Orange Body
+            ctx.fillStyle = '#ff8c00';
+            ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#d67600'; ctx.lineWidth = 3; ctx.stroke();
+            // Eyes
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(x - 6, y - 5, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x + 6, y - 5, 3, 0, Math.PI * 2); ctx.fill();
+            // Smile
+            ctx.beginPath(); ctx.arc(x, y + 2, 10, 0, Math.PI); ctx.stroke();
+        }
+
+        function drawApple(x, y) {
+            // Red Apple
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.fill();
+            // Stem
+            ctx.fillStyle = '#8e44ad';
+            ctx.fillRect(x - 2, y - 20, 4, 10);
+            // Angry Eyes
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(x - 5, y - 2, 2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x + 5, y - 2, 2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(x-10, y-6); ctx.lineTo(x-2, y-3); ctx.stroke(); // Angry brow
+            ctx.beginPath(); ctx.moveTo(x+10, y-6); ctx.lineTo(x+2, y-3); ctx.stroke();
+        }
+
+        function gameLoop() {
+            if (gameState !== 'PLAYING') return;
+            ctx.clearRect(0, 0, 800, 600);
+
+            // 1. Move Player
+            let speed = 4;
+            if (keys['KeyW']) myY -= speed; if (keys['KeyS']) myY += speed;
+            if (keys['KeyA']) myX -= speed; if (keys['KeyD']) myX += speed;
+            socket.emit('move', { x: myX, y: myY });
+
+            // 2. Draw Healing Base
+            ctx.fillStyle = 'rgba(255, 140, 0, 0.2)';
+            ctx.beginPath(); ctx.arc(400, 300, 80, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#ff8c00'; ctx.setLineDash([10, 10]); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = '14px Arial';
+            ctx.fillText("HEALING ZONE", 400, 300);
+
+            // 3. Draw Players
+            Object.values(serverPlayers).forEach(p => drawSmilingOrange(p.x, p.y));
+
+            // 4. Draw Apples
+            apples.forEach(a => drawApple(a.x, a.y));
+
+            // 5. Update & Draw My Bullets (Orange Juice)
+            ctx.fillStyle = '#f1c40f'; // Yellow juice bullets
+            for (let i = myBullets.length - 1; i >= 0; i--) {
+                let b = myBullets[i];
+                b.x += b.vx; b.y += b.vy;
+                ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
+                
+                // Hit detection against apples
+                for (let j = 0; j < apples.length; j++) {
+                    if (Math.hypot(b.x - apples[j].x, b.y - apples[j].y) < 20) {
+                        socket.emit('hitApple', apples[j].id); // Tell server apple got hit
+                        myBullets.splice(i, 1); // Remove bullet
+                        break;
+                    }
+                }
+            }
+
+            // 6. Draw Enemy Bullets (Apple Seeds)
+            ctx.fillStyle = '#2c3e50'; // Dark seed bullets
+            enemyBullets.forEach(b => {
+                ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
