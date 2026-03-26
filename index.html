@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <title>miller madness</title>
     <style>
-        body { margin: 0; background: #050505; color: #00ffcc; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        canvas { background: #000; border: 4px solid #00ffcc; box-shadow: 0 0 30px #00ffcc; }
-        #ui { position: absolute; top: 10px; width: 780px; display: flex; justify-content: space-between; font-size: 22px; text-shadow: 2px 2px #000; pointer-events: none; }
+        body { margin: 0; background: #050505; color: #ffcc00; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { background: #000; border: 4px solid #ffcc00; box-shadow: 0 0 40px #ffcc00; }
+        #ui { position: absolute; top: 10px; width: 780px; display: flex; justify-content: space-between; font-size: 22px; font-weight: bold; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div id="ui">
         <div>WAVE: <span id="wave">1</span></div>
-        <div>SCORE: <span id="score">0</span></div>
+        <div>STRENGTH: WIDE</div>
         <div>LIVES: <span id="lives">3</span></div>
     </div>
     <canvas id="gameCanvas"></canvas>
@@ -24,26 +24,26 @@
         canvas.width = 800;
         canvas.height = 600;
 
-        // Assets
         const millerImg = new Image();
         millerImg.src = 'miller.png'; 
 
-        // Game State
         let score = 0, lives = 3, wave = 1, gameActive = true;
-        let enemySpeed = 2, dogFireRate = 0.005;
+        let enemySpeed = 2, dogFireRate = 0.006;
+        let isSuper = false;
         
-        const player = { x: 375, y: 530, w: 60, h: 60, speed: 9 };
+        // MILLER IS NOW WIDER (w: 120 instead of 60)
+        const player = { x: 340, y: 520, w: 120, h: 65, speed: 7 };
         const bullets = [], enemyBullets = [], dogs = [];
         const keys = {};
 
         function spawnWave() {
             dogs.length = 0;
             for (let r = 0; r < 4; r++) {
-                for (let c = 0; c < 10; c++) {
+                for (let c = 0; c < 8; c++) {
                     dogs.push({
-                        x: 80 + c * 65,
+                        x: 100 + c * 80,
                         y: 50 + r * 50,
-                        w: 40, h: 30,
+                        w: 50, h: 35,
                         alive: true,
                         type: r === 0 ? 'alpha' : 'grunt',
                         charging: false
@@ -53,7 +53,15 @@
             document.getElementById('wave').innerText = wave;
         }
 
-        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            // Super Move: Shift to go MEGA WIDE
+            if (e.code === 'ShiftLeft' && !isSuper) {
+                isSuper = true;
+                player.w = 250; 
+                setTimeout(() => { player.w = 120; isSuper = false; }, 500);
+            }
+        });
         window.addEventListener('keyup', e => keys[e.code] = false);
 
         let dogDir = 1;
@@ -62,96 +70,81 @@
         function update() {
             if (!gameActive) return;
 
-            // 1. Miller Movement
             if (keys['KeyA'] && player.x > 0) player.x -= player.speed;
             if (keys['KeyD'] && player.x < canvas.width - player.w) player.x += player.speed;
 
-            // 2. Miller Firing (Faces shooting small faces)
             if (fireCD > 0) fireCD--;
             if (keys['Space'] && fireCD === 0) {
-                bullets.push({ x: player.x + 20, y: player.y, w: 20, h: 20 });
-                fireCD = 12;
+                // WIDE BULLETS
+                bullets.push({ x: player.x + (player.w/2) - 25, y: player.y, w: 50, h: 30 });
+                fireCD = 10;
             }
 
             bullets.forEach((b, i) => {
-                b.y -= 12;
+                b.y -= 14;
                 if (b.y < 0) bullets.splice(i, 1);
             });
 
-            // 3. Dog AI & Attack Patterns
             let shiftDown = false;
             dogs.forEach(d => {
                 if (!d.alive) return;
 
-                // Horizontal Move
                 if (!d.charging) {
                     d.x += dogDir * enemySpeed;
                     if (d.x > canvas.width - d.w || d.x < 0) shiftDown = true;
                 } else {
-                    d.y += 8; // THE ZOOMIES attack
-                    if (d.y > canvas.height) d.alive = false; // Dog ran away
+                    d.y += 10;
+                    if (d.y > canvas.height) d.alive = false;
                 }
 
-                // Attack Logic
                 const chance = Math.random();
                 if (chance < dogFireRate) {
-                    if (d.type === 'alpha') {
-                        // Spread Shot
-                        for(let i=-1; i<=1; i++) enemyBullets.push({ x: d.x+15, y: d.y+30, vx: i*2, vy: 5, t: "BARK!" });
-                    } else {
-                        // Standard Bark
-                        enemyBullets.push({ x: d.x+15, y: d.y+30, vx: 0, vy: 5, t: "woof" });
-                    }
+                    enemyBullets.push({ x: d.x+20, y: d.y+30, vx: 0, vy: 6, t: "WOOF!" });
                 }
+                if (chance < 0.0007) d.charging = true;
 
-                // Rare Charge Attack
-                if (chance < 0.0005) d.charging = true;
-
-                // Collision with Miller
+                // Collision with Wide Miller
                 if (d.x < player.x + player.w && d.x + d.w > player.x && d.y < player.y + player.h && d.y + d.h > player.y) {
-                    lives = 0; gameActive = false;
+                    if (isSuper) {
+                        d.alive = false; // Crush them if super
+                    } else {
+                        lives--;
+                        document.getElementById('lives').innerText = lives;
+                        d.alive = false; 
+                        if (lives <= 0) gameActive = false;
+                    }
                 }
             });
 
             if (shiftDown) {
                 dogDir *= -1;
-                dogs.forEach(d => { if(!d.charging) d.y += 15; });
+                dogs.forEach(d => { if(!d.charging) d.y += 20; });
             }
 
-            // 4. Enemy Projectile Logic
-            for (let i = enemyBullets.length - 1; i >= 0; i--) {
-                let eb = enemyBullets[i];
-                eb.x += eb.vx;
+            enemyBullets.forEach((eb, i) => {
                 eb.y += eb.vy;
+                if (eb.y > canvas.height) enemyBullets.splice(i, 1);
 
-                if (eb.y > canvas.height) { enemyBullets.splice(i, 1); continue; }
-
-                // Hit Miller
-                if (eb.x > player.x && eb.x < player.x + player.w && eb.y > player.y && eb.y < player.y + player.h) {
+                if (!isSuper && eb.x > player.x && eb.x < player.x + player.w && eb.y > player.y && eb.y < player.y + player.h) {
                     enemyBullets.splice(i, 1);
                     lives--;
                     document.getElementById('lives').innerText = lives;
                     if (lives <= 0) gameActive = false;
                 }
-            }
+            });
 
-            // 5. Collision: Miller Bullet vs Dog
             bullets.forEach((b, bi) => {
                 dogs.forEach((d, di) => {
                     if (d.alive && b.x < d.x + d.w && b.x + b.w > d.x && b.y < d.y + d.h && b.y + b.h > d.y) {
                         d.alive = false;
                         bullets.splice(bi, 1);
-                        score += d.type === 'alpha' ? 500 : 100;
-                        document.getElementById('score').innerText = score;
                     }
                 });
             });
 
-            // 6. Next Wave Logic
             if (dogs.every(d => !d.alive)) {
                 wave++;
-                enemySpeed += 0.8;
-                dogFireRate += 0.002;
+                enemySpeed += 1;
                 spawnWave();
             }
         }
@@ -161,31 +154,29 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             if (!gameActive) {
-                ctx.fillStyle = "#ff00cc";
-                ctx.font = "50px Courier New";
+                ctx.fillStyle = "yellow";
+                ctx.font = "50px Arial";
                 ctx.textAlign = "center";
-                ctx.fillText("MILLER OVERWHELMED", canvas.width/2, canvas.height/2);
+                ctx.fillText("WIDE MILLER FALLS", canvas.width/2, 300);
                 return;
             }
 
-            // Draw Player Miller
+            // Draw Wide Miller
+            if (isSuper) ctx.globalAlpha = 0.6; 
             ctx.drawImage(millerImg, player.x, player.y, player.w, player.h);
+            ctx.globalAlpha = 1.0;
 
-            // Draw Bullet Miller Faces
+            // Draw Wide Bullets
             bullets.forEach(b => ctx.drawImage(millerImg, b.x, b.y, b.w, b.h));
 
             // Draw Dogs
             dogs.forEach(d => {
                 if (!d.alive) return;
-                ctx.fillStyle = d.type === 'alpha' ? "#ff0000" : "#8B4513";
+                ctx.fillStyle = "#8B4513";
                 ctx.fillRect(d.x, d.y, d.w, d.h);
-                ctx.fillStyle = "white"; // Eyes
-                ctx.fillRect(d.x+5, d.y+5, 5, 5); ctx.fillRect(d.x+d.w-10, d.y+5, 5, 5);
             });
 
-            // Draw Barks
-            ctx.fillStyle = "#00ffcc";
-            ctx.font = "bold 14px Arial";
+            ctx.fillStyle = "white";
             enemyBullets.forEach(eb => ctx.fillText(eb.t, eb.x, eb.y));
 
             requestAnimationFrame(() => { update(); draw(); });
