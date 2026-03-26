@@ -5,12 +5,11 @@
     <title>miller madness</title>
     <style>
         body { margin: 0; background: #020205; color: #00ffcc; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        canvas { background: #000; border: 4px solid #00ffcc; box-shadow: 0 0 50px #0044ff; }
+        canvas { background: #000; border: 4px solid #00ffcc; box-shadow: 0 0 50px #0044ff; display: block; }
         #ui { position: absolute; top: 10px; width: 780px; display: flex; justify-content: space-between; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; }
         #meter-container { width: 100px; height: 10px; background: #333; border: 1px solid #fff; margin-top: 5px; }
         #meter-fill { width: 0%; height: 100%; background: #00ffcc; }
         
-        /* Reset Button Styling */
         #overlay { position: absolute; display: none; flex-direction: column; align-items: center; justify-content: center; width: 800px; height: 600px; background: rgba(0,0,0,0.8); z-index: 20; }
         #resetBtn { padding: 15px 30px; font-size: 24px; font-family: 'Courier New'; background: #00ffcc; border: none; cursor: pointer; font-weight: bold; border-radius: 5px; }
         #resetBtn:hover { background: #00ccaa; transform: scale(1.1); }
@@ -41,9 +40,10 @@
         canvas.height = 600;
 
         const millerImg = new Image();
+        let imgLoaded = false;
         millerImg.src = 'miller.png'; 
 
-        // Game Constants & State
+        // Game State
         let score, lives, wave, gameActive, enemySpeed, dogFireRate;
         let isSuper, superCharge, player, bullets, enemyBullets, dogs, keys;
 
@@ -52,8 +52,8 @@
             lives = 3;
             wave = 1;
             gameActive = true;
-            enemySpeed = 0.8; // SLOWED DOWN START (Was 1.5)
-            dogFireRate = 0.004; // SLOWED DOWN FIRE RATE (Was 0.007)
+            enemySpeed = 0.8; 
+            dogFireRate = 0.004; 
             isSuper = false;
             superCharge = 100;
             bullets = [];
@@ -65,17 +65,21 @@
             overlay.style.display = 'none';
             document.getElementById('lives').innerText = lives;
             spawnWave();
+            if (!window.animationStarted) {
+                window.animationStarted = true;
+                animate();
+            }
         }
 
         function drawPixelDog(x, y, w, h, color) {
             ctx.fillStyle = color;
-            ctx.fillRect(x + w*0.2, y + h*0.3, w*0.6, h*0.5); // Body
-            ctx.fillRect(x + w*0.5, y + h*0.1, w*0.4, h*0.4); // Head
+            ctx.fillRect(x + w*0.2, y + h*0.3, w*0.6, h*0.5); 
+            ctx.fillRect(x + w*0.5, y + h*0.1, w*0.4, h*0.4); 
             ctx.fillStyle = "#5D2E0A";
-            ctx.fillRect(x + w*0.55, y, w*0.1, h*0.2); // Ears
+            ctx.fillRect(x + w*0.55, y, w*0.1, h*0.2); 
             ctx.fillRect(x + w*0.8, y, w*0.1, h*0.2);
             ctx.fillStyle = "white";
-            ctx.fillRect(x + w*0.65, y + h*0.2, 4, 4); // Eyes
+            ctx.fillRect(x + w*0.65, y + h*0.2, 4, 4); 
             ctx.fillRect(x + w*0.8, y + h*0.2, 4, 4);
         }
 
@@ -115,10 +119,11 @@
             if (keys['KeyA'] && player.x > 0) player.x -= player.speed;
             if (keys['KeyD'] && player.x < canvas.width - player.w) player.x += player.speed;
 
-            // Firing
-            if (keys['Space'] && bullets.length < 4) {
-                bullets.push({ x: player.x + (player.w/2) - 30, y: player.y, w: 60, h: 35 });
-                keys['Space'] = false; // Semi-auto
+            if (keys['Space']) {
+                if (bullets.length < 4) {
+                    bullets.push({ x: player.x + (player.w/2) - 30, y: player.y, w: 60, h: 35 });
+                }
+                keys['Space'] = false; 
             }
 
             bullets.forEach((b, i) => {
@@ -126,26 +131,16 @@
                 if (b.y < 0) bullets.splice(i, 1);
             });
 
-            let dogDir = (Math.floor(Date.now() / 1000) % 2 === 0) ? 1 : -1; // Predictable slow movement
-            let shiftDown = false;
             let reachedSide = false;
-
             dogs.forEach(d => {
                 if (!d.alive) return;
-                
-                if (!d.charging) {
-                    d.x += (wave * 0.5 + enemySpeed) * (wave % 2 === 0 ? 1 : -1); 
-                    if (d.x > canvas.width - d.w || d.x < 0) reachedSide = true;
-                } else {
-                    d.y += 6;
-                    if (d.y > canvas.height) d.alive = false;
-                }
+                d.x += enemySpeed * (wave % 2 === 0 ? 1 : -1); 
+                if (d.x > canvas.width - d.w || d.x < 0) reachedSide = true;
 
                 if (Math.random() < dogFireRate) {
                     enemyBullets.push({ x: d.x + 20, y: d.y + 30, vy: 5, t: "WOOF" });
                 }
 
-                // Hit Player
                 if (d.x < player.x + player.w && d.x + d.w > player.x && d.y < player.y + player.h && d.y + d.h > player.y) {
                     if (isSuper) d.alive = false;
                     else { lives--; d.alive = false; if (lives <= 0) endGame(); }
@@ -172,11 +167,8 @@
                 });
             });
 
-            if (dogs.every(d => !d.alive)) {
-                wave++;
-                enemySpeed += 0.3;
-                dogFireRate += 0.001;
-                spawnWave();
+            if (dogs.length > 0 && dogs.every(d => !d.alive)) {
+                wave++; enemySpeed += 0.3; dogFireRate += 0.001; spawnWave();
             }
         }
 
@@ -191,19 +183,46 @@
 
             if (gameActive) {
                 if (isSuper) { ctx.shadowBlur = 15; ctx.shadowColor = "#00ffcc"; }
-                ctx.drawImage(millerImg, player.x, player.y, player.w, player.h);
+                
+                // Draw Player Miller (or fallback box)
+                if (imgLoaded) {
+                    ctx.drawImage(millerImg, player.x, player.y, player.w, player.h);
+                } else {
+                    ctx.fillStyle = "#00ffcc";
+                    ctx.fillRect(player.x, player.y, player.w, player.h);
+                    ctx.fillStyle = "black";
+                    ctx.font = "12px Arial";
+                    ctx.fillText("WIDE MILLER", player.x + 20, player.y + 35);
+                }
                 ctx.shadowBlur = 0;
 
-                bullets.forEach(b => ctx.drawImage(millerImg, b.x, b.y, b.w, b.h));
+                // Draw Bullets
+                bullets.forEach(b => {
+                    if (imgLoaded) ctx.drawImage(millerImg, b.x, b.y, b.w, b.h);
+                    else { ctx.fillStyle = "white"; ctx.fillRect(b.x, b.y, b.w, b.h); }
+                });
+
+                // Draw Dogs
                 dogs.forEach(d => { if (d.alive) drawPixelDog(d.x, d.y, d.w, d.h, d.color); });
+                
                 ctx.fillStyle = "white";
                 enemyBullets.forEach(eb => ctx.fillText(eb.t, eb.x, eb.y));
             }
-
-            requestAnimationFrame(() => { update(); draw(); });
         }
 
-        millerImg.onload = initGame;
+        function animate() {
+            update();
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        // Start safety
+        millerImg.onload = () => { imgLoaded = true; };
+        millerImg.onerror = () => { console.log("Image missing, using blocks."); };
+        
+        // Start game regardless of image status
+        initGame();
+
     </script>
 </body>
 </html>
