@@ -2,255 +2,184 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>quickdraw</title>
+    <title>miller madness</title>
     <style>
-        body {
-            margin: 0;
-            background-color: #2b2b36;
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        /* Start Screen */
-        #ui-layer {
-            position: absolute;
-            background: rgba(30, 30, 40, 0.95);
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-        }
-        #ui-layer input {
-            padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #00d2ff;
-            background: #111; color: white; text-align: center; margin-bottom: 10px;
-        }
-        #ui-layer button {
-            padding: 12px 24px; font-size: 20px; cursor: pointer; background-color: #00d2ff;
-            color: #111; font-weight: bold; border: none; border-radius: 8px; transition: 0.2s; margin-top: 10px;
-        }
-        #ui-layer button:hover { background-color: #00a8cc; }
-
-        /* Game Layout */
-        #game-container {
-            display: none; width: 900px; height: 600px; background-color: #1e1e24;
-            border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); flex-direction: row; overflow: hidden;
-        }
-
-        /* Drawing Area */
-        #draw-area {
-            flex: 2; display: flex; flex-direction: column; padding: 15px; border-right: 2px solid #333;
-        }
-        .header-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        
-        /* The Secret Word Censor Box */
-        .secret-word-box {
-            background: #111; padding: 5px 15px; border-radius: 5px; border: 1px solid #555;
-            cursor: help; position: relative;
-        }
-        #word-display {
-            background: black; color: black; transition: 0.2s; border-radius: 3px; padding: 2px 5px;
-        }
-        .secret-word-box:hover #word-display { background: transparent; color: #2ed573; font-weight: bold; }
-
-        canvas { background-color: white; border-radius: 5px; cursor: crosshair; flex-grow: 1; }
-        .tools { margin-top: 15px; display: flex; gap: 10px; align-items: center; }
-        .color-btn { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #555; cursor: pointer; }
-        #clearBtn { margin-left: auto; padding: 8px 15px; background: #ff4757; color: white; border: none; border-radius: 5px; cursor: pointer; }
-
-        /* Chat Area */
-        #chat-area { flex: 1; display: flex; flex-direction: column; background-color: #2f303a; }
-        #chat-history { flex-grow: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-        .message { background: #40424f; padding: 8px; border-radius: 5px; font-size: 14px; word-wrap: break-word;}
-        .system-message { color: #00d2ff; font-weight: bold; text-align: center; margin: 10px 0; }
-        .win-message { color: #2ed573; font-weight: bold; text-align: center; font-size: 16px; margin: 10px 0; }
-        
-        #chat-input-area { display: flex; padding: 10px; background: #23242b; }
-        #guessInput { flex-grow: 1; padding: 10px; border-radius: 5px; border: none; outline: none; background: #111; color: white; }
+        body { margin: 0; background: #0a0a0a; color: #00ff00; font-family: 'Courier New', monospace; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { background: black; border: 3px solid #00ff00; box-shadow: 0 0 20px #00ff00; }
+        #ui { position: absolute; top: 20px; width: 580px; display: flex; justify-content: space-between; font-size: 20px; font-weight: bold; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <div id="ui-layer">
-        <h1 style="color: #00d2ff; margin-bottom: 20px;">DRAW & GUESS</h1>
-        <input type="text" id="player1Input" placeholder="Player 1 Name" maxlength="12" autofocus>
-        <input type="text" id="player2Input" placeholder="Player 2 Name" maxlength="12">
-        <button id="startBtn">Start Game</button>
+    <div id="ui">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>LIVES: <span id="lives">3</span></div>
     </div>
-
-    <div id="game-container">
-        
-        <div id="draw-area">
-            <div class="header-info">
-                <h3 id="turn-indicator" style="margin: 0; color: #ccc;">Player 1 is drawing...</h3>
-                <div class="secret-word-box">
-                    <span style="color: #888; font-size: 14px;">Hover to see word: </span>
-                    <span id="word-display">APPLE</span>
-                </div>
-            </div>
-            <canvas id="drawingBoard" width="550" height="480"></canvas>
-            
-            <div class="tools">
-                <div class="color-btn" style="background: black;" onclick="changeColor('black')"></div>
-                <div class="color-btn" style="background: red;" onclick="changeColor('red')"></div>
-                <div class="color-btn" style="background: #00d2ff;" onclick="changeColor('#00d2ff')"></div>
-                <div class="color-btn" style="background: #2ed573;" onclick="changeColor('#2ed573')"></div>
-                <button id="clearBtn" onclick="clearBoard()">Clear Board</button>
-            </div>
-        </div>
-
-        <div id="chat-area">
-            <div id="chat-history"></div>
-            <div id="chat-input-area">
-                <input type="text" id="guessInput" placeholder="Type guess here...">
-            </div>
-        </div>
-    </div>
+    <canvas id="gameCanvas"></canvas>
 
     <script>
-        // Game State
-        let players = ["Player 1", "Player 2"];
-        let drawerIndex = 0; // 0 means players[0] draws, 1 means players[1] draws
-        let secretWord = "";
-        
-        const wordBank = [
-            "apple", "elephant", "guitar", "mountain", "robot", 
-            "pizza", "ocean", "spaceship", "spider", "castle",
-            "penguin", "volcano", "telescope", "dragon", "cactus",
-            "bicycle", "hamburger", "tornado", "snowman", "camera"
-        ];
-
-        // DOM Elements
-        const uiLayer = document.getElementById('ui-layer');
-        const gameContainer = document.getElementById('game-container');
-        const p1Input = document.getElementById('player1Input');
-        const p2Input = document.getElementById('player2Input');
-        const startBtn = document.getElementById('startBtn');
-        
-        const turnIndicator = document.getElementById('turn-indicator');
-        const wordDisplay = document.getElementById('word-display');
-        const chatHistory = document.getElementById('chat-history');
-        const guessInput = document.getElementById('guessInput');
-
-        // Start Game
-        startBtn.addEventListener('click', startGame);
-
-        function startGame() {
-            const p1 = p1Input.value.trim();
-            const p2 = p2Input.value.trim();
-            players[0] = p1 === '' ? 'Player 1' : p1;
-            players[1] = p2 === '' ? 'Player 2' : p2;
-            
-            uiLayer.style.display = 'none';
-            gameContainer.style.display = 'flex';
-            
-            startRound();
-        }
-
-        function startRound() {
-            // Pick a random word
-            secretWord = wordBank[Math.floor(Math.random() * wordBank.length)];
-            wordDisplay.innerText = secretWord.toUpperCase();
-
-            // Clear the board
-            clearBoard();
-
-            // Setup UI for the new turn
-            const drawerName = players[drawerIndex];
-            const guesserName = players[1 - drawerIndex]; // The other player
-            
-            turnIndicator.innerText = `✏️ ${drawerName} is drawing!`;
-            guessInput.placeholder = `${guesserName}'s guess...`;
-            
-            addSystemMessage(`--- NEW ROUND ---`);
-            addSystemMessage(`${drawerName} is drawing. ${guesserName}, get ready to guess!`);
-            
-            // Auto-focus the chat box so the guesser is ready to type
-            guessInput.focus();
-        }
-
-        // --- CHAT & GUESSING LOGIC ---
-        guessInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const guessText = guessInput.value.trim();
-                if (guessText === '') return;
-                
-                const guesserName = players[1 - drawerIndex];
-                
-                // Print the message to chat
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'message';
-                msgDiv.innerHTML = `<strong>${guesserName}:</strong> ${guessText}`;
-                chatHistory.appendChild(msgDiv);
-                
-                // Check if they won!
-                if (guessText.toLowerCase() === secretWord.toLowerCase()) {
-                    const winDiv = document.createElement('div');
-                    winDiv.className = 'win-message';
-                    winDiv.innerText = `🎉 ${guesserName} guessed the word: ${secretWord.toUpperCase()}! 🎉`;
-                    chatHistory.appendChild(winDiv);
-                    
-                    // Swap roles and start a new round after a 3 second delay
-                    drawerIndex = 1 - drawerIndex; 
-                    setTimeout(() => {
-                        startRound();
-                    }, 3000);
-                }
-
-                chatHistory.scrollTop = chatHistory.scrollHeight; // Scroll to bottom
-                guessInput.value = ''; // Clear input
-            }
-        });
-
-        function addSystemMessage(text) {
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'system-message';
-            msgDiv.innerText = text;
-            chatHistory.appendChild(msgDiv);
-            chatHistory.scrollTop = chatHistory.scrollHeight;
-        }
-
-        // --- DRAWING LOGIC ---
-        const canvas = document.getElementById('drawingBoard');
+        const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        let isDrawing = false;
+        canvas.width = 600;
+        canvas.height = 700;
 
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 5;
-        ctx.strokeStyle = 'black';
+        // Assets
+        const millerImg = new Image();
+        millerImg.src = 'miller.png'; 
 
-        function getMousePos(evt) {
-            const rect = canvas.getBoundingClientRect();
-            return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+        let score = 0;
+        let lives = 3;
+        let gameActive = true;
+        let enemySpeed = 1.5;
+
+        const player = { x: 275, y: 620, w: 50, h: 50, speed: 8 };
+        const keys = {};
+        const bullets = [];
+        const enemyBullets = [];
+        const enemies = [];
+
+        function initDogs() {
+            enemies.length = 0;
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 8; col++) {
+                    enemies.push({
+                        x: 60 + col * 60,
+                        y: 60 + row * 50,
+                        w: 40, h: 30,
+                        alive: true
+                    });
+                }
+            }
+        }
+        initDogs();
+
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        let dogDir = 1;
+        let fireCooldown = 0;
+
+        function update() {
+            if (!gameActive) return;
+
+            // Player Control
+            if (keys['KeyA'] && player.x > 0) player.x -= player.speed;
+            if (keys['KeyD'] && player.x < canvas.width - player.w) player.x += player.speed;
+
+            // Firing Miller Faces
+            if (fireCooldown > 0) fireCooldown--;
+            if (keys['Space'] && fireCooldown === 0) {
+                bullets.push({ x: player.x + 15, y: player.y, w: 25, h: 25 });
+                fireCooldown = 15; 
+            }
+
+            // Miller Face Physics
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= 12;
+                if (bullets[i].y < 0) bullets.splice(i, 1);
+            }
+
+            // Dog Movement
+            let edgeHit = false;
+            enemies.forEach(d => {
+                if (!d.alive) return;
+                d.x += dogDir * enemySpeed;
+                if (d.x > canvas.width - d.w || d.x < 0) edgeHit = true;
+                
+                // Dogs shooting "WOOFS"
+                if (Math.random() < 0.004) {
+                    enemyBullets.push({ x: d.x + 15, y: d.y + 30, text: "WOOF" });
+                }
+            });
+
+            if (edgeHit) {
+                dogDir *= -1;
+                enemies.forEach(d => d.y += 15);
+            }
+
+            // Bark Projectile Physics
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                let eb = enemyBullets[i];
+                eb.y += 4;
+                if (eb.y > canvas.height) enemyBullets.splice(i, 1);
+
+                // Collision with Player
+                if (eb.y > player.y && eb.y < player.y + player.h && 
+                    eb.x > player.x && eb.x < player.x + player.w) {
+                    enemyBullets.splice(i, 1);
+                    lives--;
+                    document.getElementById('lives').innerText = lives;
+                    if (lives <= 0) gameActive = false;
+                }
+            }
+
+            // Miller Face Hitting Dog
+            bullets.forEach((b, bi) => {
+                enemies.forEach((d, di) => {
+                    if (d.alive && b.x < d.x + d.w && b.x + b.w > d.x && 
+                        b.y < d.y + d.h && b.y + b.h > d.y) {
+                        d.alive = false;
+                        bullets.splice(bi, 1);
+                        score += 150;
+                        document.getElementById('score').innerText = score;
+                    }
+                });
+            });
+
+            if (enemies.every(d => !d.alive)) {
+                enemySpeed += 0.5;
+                initDogs();
+            }
         }
 
-        canvas.addEventListener('mousedown', (e) => {
-            isDrawing = true;
-            const pos = getMousePos(e);
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y);
-        });
+        function draw() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        canvas.addEventListener('mousemove', (e) => {
-            if (!isDrawing) return;
-            const pos = getMousePos(e);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-        });
+            if (!gameActive) {
+                ctx.fillStyle = "#ff0000";
+                ctx.font = "40px Courier New";
+                ctx.textAlign = "center";
+                ctx.fillText("MILLER DEFEATED", canvas.width/2, 350);
+                return;
+            }
 
-        canvas.addEventListener('mouseup', () => isDrawing = false);
-        canvas.addEventListener('mouseout', () => isDrawing = false);
+            // Draw Ship
+            ctx.fillStyle = "#00ff00";
+            ctx.fillRect(player.x, player.y + 10, player.w, player.h - 10);
+            ctx.fillRect(player.x + 20, player.y, 10, 10);
 
-        function changeColor(color) { ctx.strokeStyle = color; }
-        function clearBoard() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+            // Draw Miller Faces
+            bullets.forEach(b => {
+                ctx.drawImage(millerImg, b.x, b.y, b.w, b.h);
+            });
+
+            // Draw Pixelated Dogs
+            enemies.forEach(d => {
+                if (!d.alive) return;
+                ctx.fillStyle = "#8B4513"; // Brown Dogs
+                ctx.fillRect(d.x, d.y, d.w, d.h); // Body
+                ctx.fillRect(d.x - 5, d.y + 5, 5, 15); // Ear left
+                ctx.fillRect(d.x + d.w, d.y + 5, 5, 15); // Ear right
+                ctx.fillStyle = "black";
+                ctx.fillRect(d.x + 8, d.y + 8, 4, 4); // Eye
+                ctx.fillRect(d.x + 28, d.y + 8, 4, 4); // Eye
+            });
+
+            // Draw Barks
+            ctx.fillStyle = "white";
+            ctx.font = "bold 12px Arial";
+            enemyBullets.forEach(eb => {
+                ctx.fillText(eb.text, eb.x, eb.y);
+            });
+
+            requestAnimationFrame(() => {
+                update();
+                draw();
+            });
+        }
+
+        millerImg.onload = draw;
     </script>
 </body>
 </html>
