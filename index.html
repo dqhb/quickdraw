@@ -3,26 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orange Swarm</title>
+    <title>quickdraw</title>
     <style>
         body {
             margin: 0;
-            overflow: hidden;
-            background-color: #111;
+            background-color: #2b2b36;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            color: white;
-            font-family: 'Courier New', Courier, monospace;
         }
-        canvas {
-            background-color: #222;
-            box-shadow: 0 0 15px #ff8c00;
-        }
+
+        /* Start Screen */
         #ui-layer {
             position: absolute;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(30, 30, 40, 0.95);
             width: 100%;
             height: 100%;
             display: flex;
@@ -31,224 +28,229 @@
             align-items: center;
             z-index: 10;
         }
-        h1 { color: #ff8c00; font-size: 48px; margin-bottom: 10px; }
-        input {
-            padding: 12px;
-            font-size: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            border: 2px solid #ff8c00;
-            background: #333;
-            color: white;
-            text-align: center;
-            outline: none;
+        #ui-layer input {
+            padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #00d2ff;
+            background: #111; color: white; text-align: center; margin-bottom: 10px;
         }
-        button {
-            padding: 12px 24px;
-            font-size: 20px;
-            cursor: pointer;
-            background-color: #ff8c00;
-            color: #111;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            transition: 0.2s;
+        #ui-layer button {
+            padding: 12px 24px; font-size: 20px; cursor: pointer; background-color: #00d2ff;
+            color: #111; font-weight: bold; border: none; border-radius: 8px; transition: 0.2s; margin-top: 10px;
         }
-        button:hover { background-color: #ffa500; transform: scale(1.05); }
+        #ui-layer button:hover { background-color: #00a8cc; }
+
+        /* Game Layout */
+        #game-container {
+            display: none; width: 900px; height: 600px; background-color: #1e1e24;
+            border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); flex-direction: row; overflow: hidden;
+        }
+
+        /* Drawing Area */
+        #draw-area {
+            flex: 2; display: flex; flex-direction: column; padding: 15px; border-right: 2px solid #333;
+        }
+        .header-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        
+        /* The Secret Word Censor Box */
+        .secret-word-box {
+            background: #111; padding: 5px 15px; border-radius: 5px; border: 1px solid #555;
+            cursor: help; position: relative;
+        }
+        #word-display {
+            background: black; color: black; transition: 0.2s; border-radius: 3px; padding: 2px 5px;
+        }
+        .secret-word-box:hover #word-display { background: transparent; color: #2ed573; font-weight: bold; }
+
+        canvas { background-color: white; border-radius: 5px; cursor: crosshair; flex-grow: 1; }
+        .tools { margin-top: 15px; display: flex; gap: 10px; align-items: center; }
+        .color-btn { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #555; cursor: pointer; }
+        #clearBtn { margin-left: auto; padding: 8px 15px; background: #ff4757; color: white; border: none; border-radius: 5px; cursor: pointer; }
+
+        /* Chat Area */
+        #chat-area { flex: 1; display: flex; flex-direction: column; background-color: #2f303a; }
+        #chat-history { flex-grow: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .message { background: #40424f; padding: 8px; border-radius: 5px; font-size: 14px; word-wrap: break-word;}
+        .system-message { color: #00d2ff; font-weight: bold; text-align: center; margin: 10px 0; }
+        .win-message { color: #2ed573; font-weight: bold; text-align: center; font-size: 16px; margin: 10px 0; }
+        
+        #chat-input-area { display: flex; padding: 10px; background: #23242b; }
+        #guessInput { flex-grow: 1; padding: 10px; border-radius: 5px; border: none; outline: none; background: #111; color: white; }
     </style>
 </head>
 <body>
 
     <div id="ui-layer">
-        <h1>ORANGE SWARM</h1>
-        <input type="text" id="nicknameInput" placeholder="Enter Nickname" maxlength="15" autofocus>
-        <button id="startBtn">SURVIVE</button>
+        <h1 style="color: #00d2ff; margin-bottom: 20px;">DRAW & GUESS</h1>
+        <input type="text" id="player1Input" placeholder="Player 1 Name" maxlength="12" autofocus>
+        <input type="text" id="player2Input" placeholder="Player 2 Name" maxlength="12">
+        <button id="startBtn">Start Game</button>
     </div>
 
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="game-container">
+        
+        <div id="draw-area">
+            <div class="header-info">
+                <h3 id="turn-indicator" style="margin: 0; color: #ccc;">Player 1 is drawing...</h3>
+                <div class="secret-word-box">
+                    <span style="color: #888; font-size: 14px;">Hover to see word: </span>
+                    <span id="word-display">APPLE</span>
+                </div>
+            </div>
+            <canvas id="drawingBoard" width="550" height="480"></canvas>
+            
+            <div class="tools">
+                <div class="color-btn" style="background: black;" onclick="changeColor('black')"></div>
+                <div class="color-btn" style="background: red;" onclick="changeColor('red')"></div>
+                <div class="color-btn" style="background: #00d2ff;" onclick="changeColor('#00d2ff')"></div>
+                <div class="color-btn" style="background: #2ed573;" onclick="changeColor('#2ed573')"></div>
+                <button id="clearBtn" onclick="clearBoard()">Clear Board</button>
+            </div>
+        </div>
+
+        <div id="chat-area">
+            <div id="chat-history"></div>
+            <div id="chat-input-area">
+                <input type="text" id="guessInput" placeholder="Type guess here...">
+            </div>
+        </div>
+    </div>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+        // Game State
+        let players = ["Player 1", "Player 2"];
+        let drawerIndex = 0; // 0 means players[0] draws, 1 means players[1] draws
+        let secretWord = "";
+        
+        const wordBank = [
+            "apple", "elephant", "guitar", "mountain", "robot", 
+            "pizza", "ocean", "spaceship", "spider", "castle",
+            "penguin", "volcano", "telescope", "dragon", "cactus",
+            "bicycle", "hamburger", "tornado", "snowman", "camera"
+        ];
+
+        // DOM Elements
         const uiLayer = document.getElementById('ui-layer');
-        const nicknameInput = document.getElementById('nicknameInput');
+        const gameContainer = document.getElementById('game-container');
+        const p1Input = document.getElementById('player1Input');
+        const p2Input = document.getElementById('player2Input');
         const startBtn = document.getElementById('startBtn');
+        
+        const turnIndicator = document.getElementById('turn-indicator');
+        const wordDisplay = document.getElementById('word-display');
+        const chatHistory = document.getElementById('chat-history');
+        const guessInput = document.getElementById('guessInput');
 
-        let isPlaying = false;
-        const keys = {};
-        let bullets = [];
-        let enemies = [];
-        let frameCount = 0;
-
-        const player = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            size: 15,
-            speed: 4,
-            color: '#00ffff',
-            nickname: '',
-            facingX: 1, 
-            facingY: 0,
-            cooldown: 0
-        };
-
-        // UI Listeners
+        // Start Game
         startBtn.addEventListener('click', startGame);
-        nicknameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') startGame();
-        });
 
         function startGame() {
-            const name = nicknameInput.value.trim();
-            player.nickname = name === '' ? 'Survivor' : name;
+            const p1 = p1Input.value.trim();
+            const p2 = p2Input.value.trim();
+            players[0] = p1 === '' ? 'Player 1' : p1;
+            players[1] = p2 === '' ? 'Player 2' : p2;
+            
             uiLayer.style.display = 'none';
-            isPlaying = true;
-            bullets = [];
-            enemies = [];
-            gameLoop();
+            gameContainer.style.display = 'flex';
+            
+            startRound();
         }
 
-        // Controls
-        window.addEventListener('keydown', (e) => {
-            keys[e.key.toLowerCase()] = true;
-            if (e.code === 'Space') e.preventDefault(); 
-        });
-        window.addEventListener('keyup', (e) => {
-            keys[e.key.toLowerCase()] = false;
-        });
+        function startRound() {
+            // Pick a random word
+            secretWord = wordBank[Math.floor(Math.random() * wordBank.length)];
+            wordDisplay.innerText = secretWord.toUpperCase();
 
-        function spawnEnemy() {
-            // Spawn orange enemies at the edges
-            let ex, ey;
-            if (Math.random() < 0.5) {
-                ex = Math.random() < 0.5 ? 0 : canvas.width;
-                ey = Math.random() * canvas.height;
-            } else {
-                ex = Math.random() * canvas.width;
-                ey = Math.random() < 0.5 ? 0 : canvas.height;
-            }
-            enemies.push({ x: ex, y: ey, size: 12, speed: 2 });
+            // Clear the board
+            clearBoard();
+
+            // Setup UI for the new turn
+            const drawerName = players[drawerIndex];
+            const guesserName = players[1 - drawerIndex]; // The other player
+            
+            turnIndicator.innerText = `✏️ ${drawerName} is drawing!`;
+            guessInput.placeholder = `${guesserName}'s guess...`;
+            
+            addSystemMessage(`--- NEW ROUND ---`);
+            addSystemMessage(`${drawerName} is drawing. ${guesserName}, get ready to guess!`);
+            
+            // Auto-focus the chat box so the guesser is ready to type
+            guessInput.focus();
         }
 
-        function update() {
-            if (!isPlaying) return;
-            frameCount++;
-
-            // 1. WASD Movement & Direction
-            let movedX = 0, movedY = 0;
-            if (keys['w']) movedY -= 1;
-            if (keys['s']) movedY += 1;
-            if (keys['a']) movedX -= 1;
-            if (keys['d']) movedX += 1;
-
-            player.x += movedX * player.speed;
-            player.y += movedY * player.speed;
-
-            if (movedX !== 0 || movedY !== 0) {
-                const length = Math.sqrt(movedX * movedX + movedY * movedY);
-                player.facingX = movedX / length;
-                player.facingY = movedY / length;
-            }
-
-            // Boundaries
-            player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
-            player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
-
-            // 2. Shooting (Spacebar)
-            if (player.cooldown > 0) player.cooldown--;
-            if (keys[' '] && player.cooldown === 0) {
-                bullets.push({
-                    x: player.x,
-                    y: player.y,
-                    vx: player.facingX * 12,
-                    vy: player.facingY * 12,
-                    size: 4
-                });
-                player.cooldown = 10; // Fire rate
-            }
-
-            // 3. Enemy Swarm AI
-            if (frameCount % 30 === 0) spawnEnemy(); // Spawn rate
-
-            enemies.forEach(enemy => {
-                const dx = player.x - enemy.x;
-                const dy = player.y - enemy.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                enemy.x += (dx / dist) * enemy.speed;
-                enemy.y += (dy / dist) * enemy.speed;
-            });
-
-            // 4. Lag Fixes (Collisions & Garbage Collection)
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                let b = bullets[i];
-                b.x += b.vx;
-                b.y += b.vy;
-
-                // Remove off-screen bullets
-                if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
-                    bullets.splice(i, 1);
-                    continue;
+        // --- CHAT & GUESSING LOGIC ---
+        guessInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const guessText = guessInput.value.trim();
+                if (guessText === '') return;
+                
+                const guesserName = players[1 - drawerIndex];
+                
+                // Print the message to chat
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'message';
+                msgDiv.innerHTML = `<strong>${guesserName}:</strong> ${guessText}`;
+                chatHistory.appendChild(msgDiv);
+                
+                // Check if they won!
+                if (guessText.toLowerCase() === secretWord.toLowerCase()) {
+                    const winDiv = document.createElement('div');
+                    winDiv.className = 'win-message';
+                    winDiv.innerText = `🎉 ${guesserName} guessed the word: ${secretWord.toUpperCase()}! 🎉`;
+                    chatHistory.appendChild(winDiv);
+                    
+                    // Swap roles and start a new round after a 3 second delay
+                    drawerIndex = 1 - drawerIndex; 
+                    setTimeout(() => {
+                        startRound();
+                    }, 3000);
                 }
 
-                // Check bullet hits against Orange Swarm
-                for (let j = enemies.length - 1; j >= 0; j--) {
-                    let e = enemies[j];
-                    const dist = Math.hypot(b.x - e.x, b.y - e.y);
-                    if (dist < b.size + e.size) {
-                        enemies.splice(j, 1); // Kill enemy
-                        bullets.splice(i, 1); // Destroy bullet
-                        break;
-                    }
-                }
+                chatHistory.scrollTop = chatHistory.scrollHeight; // Scroll to bottom
+                guessInput.value = ''; // Clear input
             }
+        });
+
+        function addSystemMessage(text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'system-message';
+            msgDiv.innerText = text;
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
         }
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (!isPlaying) return;
+        // --- DRAWING LOGIC ---
+        const canvas = document.getElementById('drawingBoard');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
 
-            // Draw Bullets
-            ctx.fillStyle = '#fff';
-            bullets.forEach(b => {
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = 'black';
 
-            // Draw Orange Swarm
-            ctx.fillStyle = '#ff8c00';
-            enemies.forEach(e => {
-                ctx.beginPath();
-                ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
+        function getMousePos(evt) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+        }
 
-            // Draw Player
-            ctx.fillStyle = player.color;
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const pos = getMousePos(e);
             ctx.beginPath();
-            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.moveTo(pos.x, pos.y);
+        });
 
-            // Gun Barrel Indicator
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(player.x, player.y);
-            ctx.lineTo(player.x + player.facingX * 25, player.y + player.facingY * 25);
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const pos = getMousePos(e);
+            ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
+        });
 
-            // Draw Nickname
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.font = '14px Courier New';
-            ctx.textAlign = 'center';
-            ctx.fillText(player.nickname, player.x, player.y - player.size - 10);
-        }
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mouseout', () => isDrawing = false);
 
-        function gameLoop() {
-            update();
-            draw();
-            if (isPlaying) requestAnimationFrame(gameLoop);
-        }
+        function changeColor(color) { ctx.strokeStyle = color; }
+        function clearBoard() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
     </script>
 </body>
 </html>
