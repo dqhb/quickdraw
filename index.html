@@ -8,7 +8,13 @@
         canvas { background: #000; border: 4px solid #00ffcc; box-shadow: 0 0 50px #0044ff; }
         #ui { position: absolute; top: 10px; width: 780px; display: flex; justify-content: space-between; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; }
         #meter-container { width: 100px; height: 10px; background: #333; border: 1px solid #fff; margin-top: 5px; }
-        #meter-fill { width: 0%; height: 100%; background: #00ffcc; transition: width 0.1s; }
+        #meter-fill { width: 0%; height: 100%; background: #00ffcc; }
+        
+        /* Reset Button Styling */
+        #overlay { position: absolute; display: none; flex-direction: column; align-items: center; justify-content: center; width: 800px; height: 600px; background: rgba(0,0,0,0.8); z-index: 20; }
+        #resetBtn { padding: 15px 30px; font-size: 24px; font-family: 'Courier New'; background: #00ffcc; border: none; cursor: pointer; font-weight: bold; border-radius: 5px; }
+        #resetBtn:hover { background: #00ccaa; transform: scale(1.1); }
+        h1 { margin-bottom: 20px; font-size: 40px; color: #ff3300; }
     </style>
 </head>
 <body>
@@ -18,46 +24,59 @@
         <div>wide meter: <div id="meter-container"><div id="meter-fill"></div></div></div>
         <div>lives: <span id="lives">3</span></div>
     </div>
+
+    <div id="overlay">
+        <h1 id="statusText">miller defeated</h1>
+        <button id="resetBtn">try again</button>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const resetBtn = document.getElementById('resetBtn');
         canvas.width = 800;
         canvas.height = 600;
 
         const millerImg = new Image();
         millerImg.src = 'miller.png'; 
 
-        let score = 0, lives = 3, wave = 1, gameActive = true;
-        let enemySpeed = 1.5, dogFireRate = 0.007;
-        let isSuper = false, superCharge = 100;
-        
-        const player = { x: 340, y: 520, w: 130, h: 70, speed: 8 };
-        const bullets = [], enemyBullets = [], dogs = [];
-        const keys = {};
+        // Game Constants & State
+        let score, lives, wave, gameActive, enemySpeed, dogFireRate;
+        let isSuper, superCharge, player, bullets, enemyBullets, dogs, keys;
 
-        // PIXEL DOG TEXTURE GENERATOR
+        function initGame() {
+            score = 0;
+            lives = 3;
+            wave = 1;
+            gameActive = true;
+            enemySpeed = 0.8; // SLOWED DOWN START (Was 1.5)
+            dogFireRate = 0.004; // SLOWED DOWN FIRE RATE (Was 0.007)
+            isSuper = false;
+            superCharge = 100;
+            bullets = [];
+            enemyBullets = [];
+            dogs = [];
+            keys = {};
+            player = { x: 340, y: 520, w: 130, h: 70, speed: 7 };
+            
+            overlay.style.display = 'none';
+            document.getElementById('lives').innerText = lives;
+            spawnWave();
+        }
+
         function drawPixelDog(x, y, w, h, color) {
             ctx.fillStyle = color;
-            // Body
-            ctx.fillRect(x + w*0.2, y + h*0.3, w*0.6, h*0.5);
-            // Head
-            ctx.fillRect(x + w*0.5, y + h*0.1, w*0.4, h*0.4);
-            // Ears
+            ctx.fillRect(x + w*0.2, y + h*0.3, w*0.6, h*0.5); // Body
+            ctx.fillRect(x + w*0.5, y + h*0.1, w*0.4, h*0.4); // Head
             ctx.fillStyle = "#5D2E0A";
-            ctx.fillRect(x + w*0.55, y, w*0.1, h*0.2);
+            ctx.fillRect(x + w*0.55, y, w*0.1, h*0.2); // Ears
             ctx.fillRect(x + w*0.8, y, w*0.1, h*0.2);
-            // Tail
-            ctx.fillStyle = color;
-            ctx.fillRect(x + w*0.1, y + h*0.2, w*0.1, h*0.2);
-            // Eyes
             ctx.fillStyle = "white";
-            ctx.fillRect(x + w*0.65, y + h*0.2, w*0.05, h*0.05);
-            ctx.fillRect(x + w*0.8, y + h*0.2, w*0.05, h*0.05);
-            // Nose
-            ctx.fillStyle = "black";
-            ctx.fillRect(x + w*0.85, y + h*0.3, w*0.05, h*0.05);
+            ctx.fillRect(x + w*0.65, y + h*0.2, 4, 4); // Eyes
+            ctx.fillRect(x + w*0.8, y + h*0.2, 4, 4);
         }
 
         function spawnWave() {
@@ -67,7 +86,7 @@
                     dogs.push({
                         x: 100 + c * 85, y: 60 + r * 55,
                         w: 50, h: 40, alive: true,
-                        color: r === 0 ? "#FFD700" : "#8B4513", // Golden Alphas
+                        color: r === 0 ? "#FFD700" : "#8B4513",
                         charging: false
                     });
                 }
@@ -77,67 +96,62 @@
 
         window.addEventListener('keydown', e => {
             keys[e.code] = true;
-            if (e.code === 'ShiftLeft' && superCharge >= 100) {
+            if (e.code === 'ShiftLeft' && superCharge >= 100 && gameActive) {
                 isSuper = true;
                 superCharge = 0;
                 player.w = 280; 
-                setTimeout(() => { player.w = 130; isSuper = false; }, 800);
+                setTimeout(() => { if(gameActive) player.w = 130; isSuper = false; }, 800);
             }
         });
         window.addEventListener('keyup', e => keys[e.code] = false);
-
-        let dogDir = 1;
-        let fireCD = 0;
+        resetBtn.addEventListener('click', initGame);
 
         function update() {
             if (!gameActive) return;
 
-            // Super Charge Logic
-            if (superCharge < 100) superCharge += 0.5;
+            if (superCharge < 100) superCharge += 0.4;
             document.getElementById('meter-fill').style.width = superCharge + "%";
-            document.getElementById('meter-fill').style.background = superCharge >= 100 ? "#00ffcc" : "#ff3300";
 
             if (keys['KeyA'] && player.x > 0) player.x -= player.speed;
             if (keys['KeyD'] && player.x < canvas.width - player.w) player.x += player.speed;
 
-            if (fireCD > 0) fireCD--;
-            if (keys['Space'] && fireCD === 0) {
+            // Firing
+            if (keys['Space'] && bullets.length < 4) {
                 bullets.push({ x: player.x + (player.w/2) - 30, y: player.y, w: 60, h: 35 });
-                fireCD = 12;
+                keys['Space'] = false; // Semi-auto
             }
 
             bullets.forEach((b, i) => {
-                b.y -= 15;
+                b.y -= 10;
                 if (b.y < 0) bullets.splice(i, 1);
             });
 
+            let dogDir = (Math.floor(Date.now() / 1000) % 2 === 0) ? 1 : -1; // Predictable slow movement
             let shiftDown = false;
+            let reachedSide = false;
+
             dogs.forEach(d => {
                 if (!d.alive) return;
+                
                 if (!d.charging) {
-                    d.x += dogDir * enemySpeed;
-                    if (d.x > canvas.width - d.w || d.x < 0) shiftDown = true;
+                    d.x += (wave * 0.5 + enemySpeed) * (wave % 2 === 0 ? 1 : -1); 
+                    if (d.x > canvas.width - d.w || d.x < 0) reachedSide = true;
                 } else {
-                    d.y += 12;
+                    d.y += 6;
                     if (d.y > canvas.height) d.alive = false;
                 }
 
                 if (Math.random() < dogFireRate) {
-                    enemyBullets.push({ x: d.x + 20, y: d.y + 30, vy: 7, t: "BARK!" });
+                    enemyBullets.push({ x: d.x + 20, y: d.y + 30, vy: 5, t: "WOOF" });
                 }
-                if (Math.random() < 0.0005) d.charging = true;
 
+                // Hit Player
                 if (d.x < player.x + player.w && d.x + d.w > player.x && d.y < player.y + player.h && d.y + d.h > player.y) {
                     if (isSuper) d.alive = false;
-                    else { lives--; d.alive = false; if (lives <= 0) gameActive = false; }
+                    else { lives--; d.alive = false; if (lives <= 0) endGame(); }
                     document.getElementById('lives').innerText = lives;
                 }
             });
-
-            if (shiftDown) {
-                dogDir *= -1;
-                dogs.forEach(d => { if(!d.charging) d.y += 25; });
-            }
 
             enemyBullets.forEach((eb, i) => {
                 eb.y += eb.vy;
@@ -146,59 +160,50 @@
                     enemyBullets.splice(i, 1);
                     lives--;
                     document.getElementById('lives').innerText = lives;
-                    if (lives <= 0) gameActive = false;
+                    if (lives <= 0) endGame();
                 }
             });
 
             bullets.forEach((b, bi) => {
                 dogs.forEach((d, di) => {
                     if (d.alive && b.x < d.x + d.w && b.x + b.w > d.x && b.y < d.y + d.h && b.y + b.h > d.y) {
-                        d.alive = false;
-                        bullets.splice(bi, 1);
+                        d.alive = false; bullets.splice(bi, 1);
                     }
                 });
             });
 
-            if (dogs.every(d => !d.alive)) { wave++; enemySpeed += 0.5; dogFireRate += 0.001; spawnWave(); }
+            if (dogs.every(d => !d.alive)) {
+                wave++;
+                enemySpeed += 0.3;
+                dogFireRate += 0.001;
+                spawnWave();
+            }
+        }
+
+        function endGame() {
+            gameActive = false;
+            overlay.style.display = 'flex';
         }
 
         function draw() {
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            if (!gameActive) {
-                ctx.fillStyle = "#00ffcc";
-                ctx.font = "bold 40px Courier New";
-                ctx.textAlign = "center";
-                ctx.fillText("miller falls", canvas.width/2, 300);
-                return;
+            if (gameActive) {
+                if (isSuper) { ctx.shadowBlur = 15; ctx.shadowColor = "#00ffcc"; }
+                ctx.drawImage(millerImg, player.x, player.y, player.w, player.h);
+                ctx.shadowBlur = 0;
+
+                bullets.forEach(b => ctx.drawImage(millerImg, b.x, b.y, b.w, b.h));
+                dogs.forEach(d => { if (d.alive) drawPixelDog(d.x, d.y, d.w, d.h, d.color); });
+                ctx.fillStyle = "white";
+                enemyBullets.forEach(eb => ctx.fillText(eb.t, eb.x, eb.y));
             }
-
-            // Player Wide Miller
-            if (isSuper) {
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = "#00ffcc";
-            }
-            ctx.drawImage(millerImg, player.x, player.y, player.w, player.h);
-            ctx.shadowBlur = 0;
-
-            // Wide Bullets
-            bullets.forEach(b => ctx.drawImage(millerImg, b.x, b.y, b.w, b.h));
-
-            // Textured Dogs
-            dogs.forEach(d => {
-                if (d.alive) drawPixelDog(d.x, d.y, d.w, d.h, d.color);
-            });
-
-            // Bark Text
-            ctx.fillStyle = "white";
-            ctx.font = "bold 12px Arial";
-            enemyBullets.forEach(eb => ctx.fillText(eb.t, eb.x, eb.y));
 
             requestAnimationFrame(() => { update(); draw(); });
         }
 
-        millerImg.onload = () => { spawnWave(); draw(); };
+        millerImg.onload = initGame;
     </script>
 </body>
 </html>
